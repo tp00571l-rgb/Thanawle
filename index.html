@@ -1,0 +1,108 @@
+html
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบกรองข้อมูลตารางใบงาน</title>
+    <!-- เรียกใช้ Tailwind CSS เพื่อจัดหน้าตาตารางให้สวยงาม -->
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
+
+    <div class="max-w-4xl mx-auto space-y-6">
+        <!-- หัวข้อหน้าเว็บ -->
+        <header class="border-b border-gray-800 pb-4">
+            <h1 class="text-2xl font-bold text-emerald-400">📊 ระบบกรองข้อมูลตาราง (แปลงจาก Python)</h1>
+        </header>
+
+        <!-- โซนช่องกรอกคำและปุ่มกด -->
+        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 flex flex-col sm:flex-row gap-4 items-end">
+            <div class="w-full">
+                <label class="block text-sm font-medium text-gray-300 mb-2">ตัดคำออก:</label>
+                <input type="text" id="excludeInput" placeholder="เช่น Completed, Offline (คั่นด้วยจุลภาค)" 
+                       class="w-full bg-gray-700 border border-gray-600 rounded-md px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500">
+            </div>
+            <button onclick="filterData()" 
+                    class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded-md transition-colors whitespace-nowrap cursor-pointer">
+                กรองข้อมูล
+            </button>
+        </div>
+
+        <!-- โซนแสดงผลตาราง -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-700 text-gray-200 uppercase text-xs">
+                            <th class="px-6 py-3">Ticket_No</th>
+                            <th class="px-6 py-3">Area</th>
+                            <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3">Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-gray-700 text-gray-300">
+                        <!-- ข้อมูลตารางจะแสดงตรงนี้ -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. ข้อมูลจำลอง (แปลงมาจาก Dictionary ใน Python)
+        const df = [
+            { Ticket_No: "REQ-001", Area: "BKK", Status: "Pending", Detail: "Los Fiber" },
+            { Ticket_No: "REQ-002", Area: "BKK", Status: "Completed", Detail: "Los Router" },
+            { Ticket_No: "REQ-003", Area: "CNX", Status: "Pending", Detail: "Los Fiber" },
+            { Ticket_No: "REQ-004", Area: "BKK", Status: "Approval", Detail: "Offline" }
+        ];
+
+        // 2. ฟังก์ชันวาดตารางลงหน้าเว็บ
+        function renderTable(data) {
+            const tbody = document.getElementById("tableBody");
+            tbody.innerHTML = "";
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-500">ไม่พบข้อมูลที่ตรงตามเงื่อนไข</td></tr>`;
+                return;
+            }
+
+            data.forEach(row => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-700/50">
+                        <td class="px-6 py-3">${row.Ticket_No}</td>
+                        <td class="px-6 py-3">${row.Area}</td>
+                        <td class="px-6 py-3">${row.Status}</td>
+                        <td class="px-6 py-3">${row.Detail}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 3. ฟังก์ชันกรองข้อมูลเมื่อกดปุ่ม
+        function filterData() {
+            const rawInput = document.getElementById("excludeInput").value.trim().toLowerCase();
+            // แยกคำด้วยเครื่องหมายจุลภาค (,) เผื่อกรอกหลายคำ
+            const keywords = rawInput ? rawInput.split(",").map(k => k.trim()).filter(k => k !== "") : [];
+
+            let result = [...df];
+
+            if (keywords.length > 0) {
+                result = result.filter(row => {
+                    // นำค่าทุกคอลัมน์ในแถวมาต่อกันแล้วเช็กว่ามีคำต้องห้ามหรือไม่
+                    const rowText = Object.values(row).join(" ").toLowerCase();
+                    const hasExcludedWord = keywords.some(kw => rowText.includes(kw));
+                    return !hasExcludedWord;
+                });
+            }
+
+            renderTable(result);
+        }
+
+        // แสดงข้อมูลทั้งหมดทันทีที่เปิดหน้าเว็บ
+        renderTable(df);
+    </script>
+
+</body>
+</html>
