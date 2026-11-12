@@ -1,107 +1,475 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบกรองข้อมูลตารางใบงาน</title>
-    <!-- เรียกใช้ Tailwind CSS เพื่อจัดหน้าตาตารางให้สวยงาม -->
-    <script src="https://jsdelivr.net"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ตารางพร้อมส่ง LINE</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0c1018;
+      color: #edf2fb;
+      font-synthesis: none;
+      --panel: #141b27;
+      --panel-raised: #192231;
+      --line: #293548;
+      --muted: #9aa8bc;
+      --accent: #76e3bd;
+      --accent-ink: #09241b;
+      --danger: #ff9f9f;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    button, input, select { font: inherit; }
+    button, select, input[type="text"] {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #101722;
+      color: inherit;
+    }
+    button { cursor: pointer; transition: background .15s ease, transform .15s ease; }
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+    button:disabled { cursor: not-allowed; opacity: .48; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .page { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 64px; }
+    .topline { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+    .topline-mark { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid #2d735c; border-radius: 9px; background: #122a23; }
+    h1 { margin: 18px 0 8px; font-size: clamp(28px, 5vw, 42px); letter-spacing: -.04em; }
+    .intro { max-width: 650px; margin: 0; color: var(--muted); line-height: 1.7; }
+    .layout { display: grid; gap: 18px; margin-top: 30px; }
+    .card { padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: 0 16px 40px #00000014; }
+    .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+    .heading-left { display: flex; gap: 12px; }
+    .step { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: #20352f; color: var(--accent); font-size: 13px; font-weight: 800; }
+    h2 { margin: 1px 0 4px; font-size: 17px; }
+    .subheading { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .upload-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 100px; padding: 20px; border: 1px dashed #3c5167; border-radius: 12px; background: #101722; }
+    .upload-copy { display: flex; align-items: center; gap: 14px; }
+    .file-icon { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 12px; background: #20352f; color: var(--accent); font-size: 13px; font-weight: 800; }
+    .upload-title { font-weight: 700; }
+    .upload-hint, .file-name { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .file-name { color: var(--accent); }
+    .primary, .secondary, .quiet, .remove-filter { padding: 10px 15px; font-weight: 700; }
+    .primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+    .secondary { border-color: #375744; background: #1d3029; color: var(--accent); }
+    .quiet { background: transparent; color: #c4cede; }
+    .remove-filter { padding: 8px 11px; color: #d3a5a5; }
+    .input-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+    .field { display: grid; flex: 1 1 200px; gap: 7px; color: #c6d0df; font-size: 12px; font-weight: 700; }
+    select, input[type="text"] { width: 100%; min-height: 42px; padding: 9px 11px; }
+    select:disabled, input:disabled { opacity: .48; }
+    .filters { display: grid; gap: 10px; }
+    .filter-row { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(150px, 1fr) minmax(140px, 1fr) auto; align-items: end; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #101722; }
+    .filter-placeholder { padding: 15px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 13px; }
+    .column-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .column-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: #101722; color: #dce5f1; font-size: 13px; cursor: pointer; }
+    .column-chip input { accent-color: var(--accent); }
+    .empty-columns { color: var(--muted); font-size: 13px; }
+    .results-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+    .results-meta { color: var(--muted); font-size: 13px; }
+    .results-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+    .table-wrap { margin-top: 16px; overflow: auto; border: 1px solid var(--line); border-radius: 11px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th, td { min-width: 140px; max-width: 320px; padding: 12px 14px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+    th { position: sticky; top: 0; background: #1d2838; color: #dce8f8; font-weight: 700; }
+    td { color: #c6d0df; }
+    tr:last-child td { border-bottom: 0; }
+    .table-empty { padding: 36px 16px; color: var(--muted); text-align: center; }
+    .notice { display: none; margin-top: 14px; padding: 11px 13px; border: 1px solid #315d4c; border-radius: 10px; background: #14251f; color: #b6f3d9; font-size: 13px; line-height: 1.5; }
+    .notice.error { border-color: #714044; background: #2a191d; color: var(--danger); }
+    .privacy-note { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .hidden { display: none !important; }
+
+    @media (max-width: 680px) {
+      .page { width: min(100% - 24px, 560px); padding-top: 28px; }
+      .card { padding: 17px; }
+      .upload-box { align-items: flex-start; flex-direction: column; }
+      .upload-box .primary { width: 100%; }
+      .filter-row { grid-template-columns: 1fr; }
+      .remove-filter { justify-self: start; }
+      .results-actions { width: 100%; }
+      .results-actions button { flex: 1; }
+    }
+  </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
+<body>
+  <main class="page">
+    <div class="topline"><span class="topline-mark" aria-hidden="true">▦</span> เครื่องมือจัดตาราง</div>
+    <h1>กรองข้อมูล พร้อมส่ง LINE</h1>
+    <p class="intro">อัปโหลดไฟล์ Excel เลือกเงื่อนไขและคอลัมน์ที่ต้องการ แล้วคัดลอกผลลัพธ์เป็นข้อความพร้อมวางใน LINE ได้ทันที</p>
 
-    <div class="max-w-4xl mx-auto space-y-6">
-        <!-- หัวข้อหน้าเว็บ -->
-        <header class="border-b border-gray-800 pb-4">
-            <h1 class="text-2xl font-bold text-emerald-400">📊 ระบบกรองข้อมูลตาราง (แปลงจาก Python)</h1>
-        </header>
-
-        <!-- โซนช่องกรอกคำและปุ่มกด -->
-        <div class="bg-gray-800 p-6 rounded-lg border border-gray-700 flex flex-col sm:flex-row gap-4 items-end">
-            <div class="w-full">
-                <label class="block text-sm font-medium text-gray-300 mb-2">ตัดคำออก:</label>
-                <input type="text" id="excludeInput" placeholder="เช่น Completed, Offline (คั่นด้วยจุลภาค)" 
-                       class="w-full bg-gray-700 border border-gray-600 rounded-md px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500">
-            </div>
-            <button onclick="filterData()" 
-                    class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-6 py-2 rounded-md transition-colors whitespace-nowrap cursor-pointer">
-                กรองข้อมูล
-            </button>
+    <div class="layout">
+      <section class="card" aria-labelledby="upload-heading">
+        <div class="section-heading">
+          <div class="heading-left">
+            <span class="step">1</span>
+            <div><h2 id="upload-heading">อัปโหลดไฟล์ Excel</h2><p class="subheading">รองรับไฟล์ .xlsx และ .xls โดยแถวแรกใช้เป็นชื่อคอลัมน์</p></div>
+          </div>
         </div>
-
-        <!-- โซนแสดงผลตาราง -->
-        <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead>
-                        <tr class="bg-gray-700 text-gray-200 uppercase text-xs">
-                            <th class="px-6 py-3">Ticket_No</th>
-                            <th class="px-6 py-3">Area</th>
-                            <th class="px-6 py-3">Status</th>
-                            <th class="px-6 py-3">Detail</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody" class="divide-y divide-gray-700 text-gray-300">
-                        <!-- ข้อมูลตารางจะแสดงตรงนี้ -->
-                    </tbody>
-                </table>
-            </div>
+        <div class="upload-box">
+          <div class="upload-copy">
+            <span class="file-icon" aria-hidden="true">XLS</span>
+            <div><div class="upload-title">เลือกไฟล์จากอุปกรณ์</div><div class="upload-hint">ข้อมูลจะถูกประมวลผลในเบราว์เซอร์ของคุณ</div><div class="file-name hidden" id="file-name"></div></div>
+          </div>
+          <button class="primary" id="choose-file" type="button">เลือกไฟล์ Excel</button>
+          <input class="input-hidden" id="file-input" type="file" accept=".xlsx,.xls" aria-label="เลือกไฟล์ Excel">
         </div>
+        <div class="toolbar hidden" id="sheet-toolbar" style="margin-top: 15px">
+          <label class="field" for="sheet-select">เลือกชีตในไฟล์
+            <select id="sheet-select"></select>
+          </label>
+        </div>
+        <div class="notice" id="notice" role="status" aria-live="polite"></div>
+        <p class="privacy-note">ไฟล์จะไม่ถูกอัปโหลดไปยังเซิร์ฟเวอร์ การอ่านไฟล์ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อโหลดตัวอ่าน Excel</p>
+      </section>
+
+      <section class="card" aria-labelledby="filter-heading">
+        <div class="section-heading">
+          <div class="heading-left">
+            <span class="step">2</span>
+            <div><h2 id="filter-heading">ตั้งค่าเงื่อนไขกรอง</h2><p class="subheading">เพิ่มได้หลายเงื่อนไข โดยข้อมูลต้องตรงกับทุกข้อ</p></div>
+          </div>
+          <button class="secondary" id="add-filter" type="button" disabled>＋ เพิ่มเงื่อนไข</button>
+        </div>
+        <div class="filters" id="filters">
+          <div class="filter-placeholder">อัปโหลดไฟล์ก่อน เพื่อเลือกคอลัมน์สำหรับกรอง</div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="columns-heading">
+        <div class="section-heading">
+          <div class="heading-left">
+            <span class="step">3</span>
+            <div><h2 id="columns-heading">เลือกคอลัมน์ที่จะแสดง</h2><p class="subheading">เลือกหรือยกเลิกคอลัมน์ได้ตามต้องการ</p></div>
+          </div>
+        </div>
+        <div class="column-list" id="column-list"><span class="empty-columns">อัปโหลดไฟล์เพื่อแสดงรายการคอลัมน์</span></div>
+      </section>
+
+      <section class="card" aria-labelledby="results-heading">
+        <div class="results-head">
+          <div>
+            <h2 id="results-heading">ผลลัพธ์</h2>
+            <div class="results-meta" id="results-meta" aria-live="polite">ยังไม่มีข้อมูล</div>
+          </div>
+          <div class="results-actions">
+            <button class="secondary" id="copy-button" type="button" disabled>คัดลอกไป LINE</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="result-table">
+            <tbody><tr><td class="table-empty">อัปโหลดไฟล์ Excel เพื่อเริ่มต้น</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </div>
+  </main>
 
-    <script>
-        // 1. ข้อมูลจำลอง (แปลงมาจาก Dictionary ใน Python)
-        const df = [
-            { Ticket_No: "REQ-001", Area: "BKK", Status: "Pending", Detail: "Los Fiber" },
-            { Ticket_No: "REQ-002", Area: "BKK", Status: "Completed", Detail: "Los Router" },
-            { Ticket_No: "REQ-003", Area: "CNX", Status: "Pending", Detail: "Los Fiber" },
-            { Ticket_No: "REQ-004", Area: "BKK", Status: "Approval", Detail: "Offline" }
-        ];
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    const fileInput = document.getElementById("file-input");
+    const chooseFileButton = document.getElementById("choose-file");
+    const fileName = document.getElementById("file-name");
+    const sheetToolbar = document.getElementById("sheet-toolbar");
+    const sheetSelect = document.getElementById("sheet-select");
+    const notice = document.getElementById("notice");
+    const filtersContainer = document.getElementById("filters");
+    const addFilterButton = document.getElementById("add-filter");
+    const columnList = document.getElementById("column-list");
+    const resultsMeta = document.getElementById("results-meta");
+    const resultTable = document.getElementById("result-table");
+    const copyButton = document.getElementById("copy-button");
 
-        // 2. ฟังก์ชันวาดตารางลงหน้าเว็บ
-        function renderTable(data) {
-            const tbody = document.getElementById("tableBody");
-            tbody.innerHTML = "";
+    let workbook = null;
+    let headers = [];
+    let rows = [];
+    let filteredRows = [];
+    let selectedColumns = [];
 
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-gray-500">ไม่พบข้อมูลที่ตรงตามเงื่อนไข</td></tr>`;
-                return;
-            }
+    chooseFileButton.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      hideNotice();
+      fileName.textContent = file.name;
+      fileName.classList.remove("hidden");
 
-            data.forEach(row => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-gray-700/50">
-                        <td class="px-6 py-3">${row.Ticket_No}</td>
-                        <td class="px-6 py-3">${row.Area}</td>
-                        <td class="px-6 py-3">${row.Status}</td>
-                        <td class="px-6 py-3">${row.Detail}</td>
-                    </tr>
-                `;
-            });
+      if (!window.XLSX) {
+        showNotice("โหลดตัวอ่าน Excel ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้า", true);
+        return;
+      }
+
+      try {
+        const data = await file.arrayBuffer();
+        workbook = XLSX.read(data, { type: "array", cellDates: true });
+        if (!workbook.SheetNames.length) throw new Error("ไม่พบชีตในไฟล์นี้");
+        sheetSelect.replaceChildren();
+        workbook.SheetNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          sheetSelect.append(option);
+        });
+        sheetToolbar.classList.remove("hidden");
+        loadSelectedSheet();
+        showNotice("อ่านไฟล์เรียบร้อย พบ " + workbook.SheetNames.length + " ชีต");
+      } catch (error) {
+        workbook = null;
+        resetData("ไม่สามารถอ่านไฟล์นี้ได้ กรุณาตรวจสอบว่าเป็นไฟล์ Excel ที่ถูกต้อง");
+        showNotice(error instanceof Error ? error.message : "เกิดข้อผิดพลาดขณะอ่านไฟล์", true);
+      }
+    });
+
+    sheetSelect.addEventListener("change", loadSelectedSheet);
+    addFilterButton.addEventListener("click", () => {
+      if (!headers.length) return;
+      filtersContainer.append(createFilterRow());
+      updateResults();
+    });
+    copyButton.addEventListener("click", copyResults);
+
+    function loadSelectedSheet() {
+      const sheet = workbook && workbook.Sheets[sheetSelect.value];
+      if (!sheet) return;
+      const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: "", blankrows: false });
+      if (!matrix.length) {
+        resetData("ชีตนี้ไม่มีข้อมูล");
+        showNotice("ชีตนี้ไม่มีข้อมูล", true);
+        return;
+      }
+
+      const rawHeaders = matrix[0];
+      headers = rawHeaders.map((value, index) => {
+        const label = String(value).trim() || "คอลัมน์ " + (index + 1);
+        let uniqueLabel = label;
+        let suffix = 2;
+        while (rawHeaders.slice(0, index).some((previous, previousIndex) => {
+          const previousLabel = String(previous).trim() || "คอลัมน์ " + (previousIndex + 1);
+          return previousLabel === uniqueLabel;
+        })) {
+          uniqueLabel = label + " (" + suffix++ + ")";
         }
+        return uniqueLabel;
+      });
+      rows = matrix.slice(1).map((row) => headers.map((_, index) => valueToText(row[index])));
+      selectedColumns = headers.map((_, index) => index);
+      renderColumns();
+      filtersContainer.replaceChildren();
+      filtersContainer.append(createFilterRow());
+      addFilterButton.disabled = false;
+      updateResults();
+      showNotice("โหลดชีต “" + sheetSelect.value + "” แล้ว");
+    }
 
-        // 3. ฟังก์ชันกรองข้อมูลเมื่อกดปุ่ม
-        function filterData() {
-            const rawInput = document.getElementById("excludeInput").value.trim().toLowerCase();
-            // แยกคำด้วยเครื่องหมายจุลภาค (,) เผื่อกรอกหลายคำ
-            const keywords = rawInput ? rawInput.split(",").map(k => k.trim()).filter(k => k !== "") : [];
+    function valueToText(value) {
+      if (value === null || value === undefined) return "";
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toLocaleString("th-TH");
+      return String(value);
+    }
 
-            let result = [...df];
+    function createFilterRow() {
+      const row = document.createElement("div");
+      row.className = "filter-row";
+      const columnLabel = makeSelectField("คอลัมน์", headers.map((header, index) => ({ value: String(index), label: header })));
+      const operatorLabel = makeSelectField("เงื่อนไข", [
+        { value: "contains", label: "มีคำว่า" },
+        { value: "notContains", label: "ไม่มีคำว่า" },
+        { value: "equals", label: "เท่ากับ" },
+        { value: "notEquals", label: "ไม่เท่ากับ" },
+        { value: "empty", label: "ค่าว่าง" },
+        { value: "notEmpty", label: "ไม่ว่าง" }
+      ]);
+      const valueLabel = document.createElement("label");
+      valueLabel.className = "field";
+      valueLabel.append(document.createTextNode("คำที่ใช้ค้นหา"));
+      const valueInput = document.createElement("input");
+      valueInput.type = "text";
+      valueInput.placeholder = "พิมพ์คำหรือข้อความ";
+      valueInput.autocomplete = "off";
+      valueLabel.append(valueInput);
+      const removeButton = document.createElement("button");
+      removeButton.className = "remove-filter";
+      removeButton.type = "button";
+      removeButton.textContent = "ลบ";
+      removeButton.setAttribute("aria-label", "ลบเงื่อนไขนี้");
 
-            if (keywords.length > 0) {
-                result = result.filter(row => {
-                    // นำค่าทุกคอลัมน์ในแถวมาต่อกันแล้วเช็กว่ามีคำต้องห้ามหรือไม่
-                    const rowText = Object.values(row).join(" ").toLowerCase();
-                    const hasExcludedWord = keywords.some(kw => rowText.includes(kw));
-                    return !hasExcludedWord;
-                });
-            }
+      operatorLabel.querySelector("select").addEventListener("change", () => {
+        const needsValue = !["empty", "notEmpty"].includes(operatorLabel.querySelector("select").value);
+        valueInput.disabled = !needsValue;
+        valueInput.placeholder = needsValue ? "พิมพ์คำหรือข้อความ" : "ไม่ต้องระบุคำ";
+        updateResults();
+      });
+      columnLabel.querySelector("select").addEventListener("change", updateResults);
+      valueInput.addEventListener("input", updateResults);
+      removeButton.addEventListener("click", () => {
+        row.remove();
+        updateResults();
+      });
+      row.append(columnLabel, operatorLabel, valueLabel, removeButton);
+      return row;
+    }
 
-            renderTable(result);
+    function makeSelectField(title, options) {
+      const label = document.createElement("label");
+      label.className = "field";
+      label.append(document.createTextNode(title));
+      const select = document.createElement("select");
+      options.forEach(({ value, label: text }) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        select.append(option);
+      });
+      label.append(select);
+      return label;
+    }
+
+    function renderColumns() {
+      columnList.replaceChildren();
+      headers.forEach((header, index) => {
+        const label = document.createElement("label");
+        label.className = "column-chip";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = true;
+        checkbox.addEventListener("change", () => {
+          selectedColumns = Array.from(columnList.querySelectorAll("input"))
+            .flatMap((input, columnIndex) => input.checked ? [columnIndex] : []);
+          updateResults();
+        });
+        label.append(checkbox, document.createTextNode(header));
+        columnList.append(label);
+      });
+    }
+
+    function updateResults() {
+      const filterRows = Array.from(filtersContainer.querySelectorAll(".filter-row"));
+      const conditions = filterRows.map((filterRow) => {
+        const selects = filterRow.querySelectorAll("select");
+        const input = filterRow.querySelector('input[type="text"]');
+        return { column: Number(selects[0].value), operator: selects[1].value, value: input.value.trim().toLocaleLowerCase() };
+      });
+      filteredRows = rows.filter((row) => conditions.every(({ column, operator, value }) => {
+        if (["contains", "notContains", "equals", "notEquals"].includes(operator) && !value) return true;
+        const cell = String(row[column] ?? "");
+        const normalized = cell.toLocaleLowerCase();
+        switch (operator) {
+          case "contains": return normalized.includes(value);
+          case "notContains": return !normalized.includes(value);
+          case "equals": return normalized === value;
+          case "notEquals": return normalized !== value;
+          case "empty": return cell.trim() === "";
+          case "notEmpty": return cell.trim() !== "";
+          default: return true;
         }
+      }));
+      renderTable();
+    }
 
-        // แสดงข้อมูลทั้งหมดทันทีที่เปิดหน้าเว็บ
-        renderTable(df);
-    </script>
+    function renderTable() {
+      resultTable.replaceChildren();
+      if (!headers.length) {
+        resultTable.innerHTML = '<tbody><tr><td class="table-empty">อัปโหลดไฟล์ Excel เพื่อเริ่มต้น</td></tr></tbody>';
+        resultsMeta.textContent = "ยังไม่มีข้อมูล";
+        copyButton.disabled = true;
+        return;
+      }
+      const visibleColumns = selectedColumns;
+      resultsMeta.textContent = "พบ " + filteredRows.length.toLocaleString("th-TH") + " จาก " + rows.length.toLocaleString("th-TH") + " แถว";
+      copyButton.disabled = filteredRows.length === 0 || visibleColumns.length === 0;
+      if (!visibleColumns.length) {
+        resultTable.innerHTML = '<tbody><tr><td class="table-empty">เลือกอย่างน้อย 1 คอลัมน์เพื่อแสดงผล</td></tr></tbody>';
+        return;
+      }
+      if (!filteredRows.length) {
+        resultTable.innerHTML = '<tbody><tr><td class="table-empty">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td></tr></tbody>';
+        return;
+      }
 
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      visibleColumns.forEach((index) => {
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = headers[index];
+        headerRow.append(th);
+      });
+      thead.append(headerRow);
+      const tbody = document.createElement("tbody");
+      filteredRows.slice(0, 200).forEach((row) => {
+        const tr = document.createElement("tr");
+        visibleColumns.forEach((index) => {
+          const td = document.createElement("td");
+          td.textContent = row[index];
+          tr.append(td);
+        });
+        tbody.append(tr);
+      });
+      resultTable.append(thead, tbody);
+      if (filteredRows.length > 200) {
+        const note = document.createElement("caption");
+        note.style.cssText = "caption-side: bottom; padding: 12px; color: var(--muted); text-align: left";
+        note.textContent = "แสดงตัวอย่าง 200 แถวแรก — ปุ่มคัดลอกจะคัดลอกครบ " + filteredRows.length.toLocaleString("th-TH") + " แถว";
+        resultTable.append(note);
+      }
+    }
+
+    async function copyResults() {
+      const visibleColumns = selectedColumns;
+      if (!filteredRows.length || !visibleColumns.length) return;
+      const text = filteredRows.map((row) => visibleColumns
+        .map((index) => headers[index] + ": " + (row[index] || "-"))
+        .join("\n")).join("\n\n");
+      try {
+        await navigator.clipboard.writeText(text);
+        showNotice("คัดลอก " + filteredRows.length.toLocaleString("th-TH") + " แถวแล้ว พร้อมวางใน LINE");
+      } catch (error) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.append(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) {
+          showNotice("คัดลอกไม่สำเร็จ กรุณาเปิดหน้านี้ผ่าน HTTPS หรือ localhost แล้วลองอีกครั้ง", true);
+          return;
+        }
+        showNotice("คัดลอก " + filteredRows.length.toLocaleString("th-TH") + " แถวแล้ว พร้อมวางใน LINE");
+      }
+    }
+
+    function resetData(message) {
+      headers = [];
+      rows = [];
+      filteredRows = [];
+      selectedColumns = [];
+      addFilterButton.disabled = true;
+      filtersContainer.innerHTML = '<div class="filter-placeholder">อัปโหลดไฟล์ก่อน เพื่อเลือกคอลัมน์สำหรับกรอง</div>';
+      columnList.innerHTML = '<span class="empty-columns">อัปโหลดไฟล์เพื่อแสดงรายการคอลัมน์</span>';
+      resultsMeta.textContent = message;
+      copyButton.disabled = true;
+      resultTable.innerHTML = '<tbody><tr><td class="table-empty">' + message + "</td></tr></tbody>";
+    }
+
+    function showNotice(message, isError) {
+      notice.textContent = message;
+      notice.classList.toggle("error", Boolean(isError));
+      notice.style.display = "block";
+    }
+    function hideNotice() {
+      notice.style.display = "none";
+      notice.classList.remove("error");
+    }
+  </script>
 </body>
 </html>
