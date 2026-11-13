@@ -76,7 +76,7 @@
     .results-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
     .results-meta { color: var(--muted); font-size: 13px; }
     .results-actions { display: flex; flex-wrap: wrap; gap: 9px; }
-    .table-wrap { margin-top: 16px; overflow: auto; border: 1px solid var(--line); border-radius: 11px; }
+    .table-wrap { height: min(52vh, 520px); min-height: 180px; margin-top: 16px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 11px; }
     table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
     th, td { min-width: 140px; max-width: 320px; padding: 12px 14px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
     th { position: sticky; top: 0; background: #1d2838; color: #dce8f8; font-weight: 700; }
@@ -97,6 +97,7 @@
       .remove-filter { justify-self: start; }
       .results-actions { width: 100%; }
       .results-actions button { flex: 1; }
+      .table-wrap { height: min(45vh, 360px); min-height: 160px; }
     }
   </style>
 </head>
