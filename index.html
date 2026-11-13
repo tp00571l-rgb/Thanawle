@@ -112,7 +112,7 @@
         <div class="section-heading">
           <div class="heading-left">
             <span class="step">1</span>
-            <div><h2 id="upload-heading">อัปโหลดไฟล์ Excel</h2><p class="subheading">รองรับไฟล์ .xlsx และ .xls โดยแถวแรกใช้เป็นชื่อคอลัมน์</p></div>
+            <div><h2 id="upload-heading">อัปโหลดไฟล์ Excel</h2><p class="subheading">รองรับไฟล์ .xlsx และ .xls โดยใช้หัวตารางและข้อมูลเฉพาะคอลัมน์ A–O</p></div>
           </div>
         </div>
         <div class="upload-box">
@@ -124,10 +124,14 @@
           <input class="input-hidden" id="file-input" type="file" accept=".xlsx,.xls" aria-label="เลือกไฟล์ Excel">
         </div>
         <div class="toolbar hidden" id="sheet-toolbar" style="margin-top: 15px">
-          <label class="field" for="sheet-select">เลือกชีตในไฟล์
+          <label class="field" for="sheet-select">ชีตข้อมูล
             <select id="sheet-select"></select>
           </label>
+          <label class="field" for="condition-sheet-select">ชีตเงื่อนไข
+            <select id="condition-sheet-select"></select>
+          </label>
         </div>
+        <p class="privacy-note hidden" id="condition-format">รูปแบบชีตเงื่อนไข: แถวแรกใช้หัวคอลัมน์ <strong>คอลัมน์ | เงื่อนไข | ค่า</strong> เช่น <strong>สถานะ | เท่ากับ | พร้อมส่ง</strong> เงื่อนไขเลือกได้: มีคำว่า, ไม่มีคำว่า, เท่ากับ, ไม่เท่ากับ, ค่าว่าง, ไม่ว่าง โดยชื่อคอลัมน์ต้องตรงกับชีตข้อมูล และทุกเงื่อนไขต้องตรงครบ ระบบเลือกชีตให้อัตโนมัติเมื่อชื่อมีคำว่า “เงื่อนไข”, “condition” หรือ “criteria”</p>
         <div class="notice" id="notice" role="status" aria-live="polite"></div>
         <p class="privacy-note">ไฟล์จะไม่ถูกอัปโหลดไปยังเซิร์ฟเวอร์ การอ่านไฟล์ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อโหลดตัวอ่าน Excel</p>
       </section>
@@ -182,6 +186,8 @@
     const fileName = document.getElementById("file-name");
     const sheetToolbar = document.getElementById("sheet-toolbar");
     const sheetSelect = document.getElementById("sheet-select");
+    const conditionSheetSelect = document.getElementById("condition-sheet-select");
+    const conditionFormat = document.getElementById("condition-format");
     const notice = document.getElementById("notice");
     const filtersContainer = document.getElementById("filters");
     const addFilterButton = document.getElementById("add-filter");
@@ -190,12 +196,22 @@
     const resultTable = document.getElementById("result-table");
     const copyButton = document.getElementById("copy-button");
     const exportButton = document.getElementById("export-button");
+    const DISPLAY_COLUMN_COUNT = 15;
 
     let workbook = null;
     let headers = [];
     let rows = [];
     let filteredRows = [];
     let selectedColumns = [];
+    let conditionError = "";
+    const filterOperators = [
+      { value: "contains", label: "มีคำว่า" },
+      { value: "notContains", label: "ไม่มีคำว่า" },
+      { value: "equals", label: "เท่ากับ" },
+      { value: "notEquals", label: "ไม่เท่ากับ" },
+      { value: "empty", label: "ค่าว่าง" },
+      { value: "notEmpty", label: "ไม่ว่าง" }
+    ];
 
     chooseFileButton.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", async () => {
@@ -221,9 +237,13 @@
           option.textContent = name;
           sheetSelect.append(option);
         });
+        conditionSheetSelect.replaceChildren();
+        const suggestedDataSheet = workbook.SheetNames.find((name) => !isConditionSheetName(name)) || workbook.SheetNames[0];
+        sheetSelect.value = suggestedDataSheet;
+        populateConditionSheetOptions();
         sheetToolbar.classList.remove("hidden");
+        conditionFormat.classList.remove("hidden");
         loadSelectedSheet();
-        showNotice("อ่านไฟล์เรียบร้อย พบ " + workbook.SheetNames.length + " ชีต");
       } catch (error) {
         workbook = null;
         resetData("ไม่สามารถอ่านไฟล์นี้ได้ กรุณาตรวจสอบว่าเป็นไฟล์ Excel ที่ถูกต้อง");
@@ -231,7 +251,11 @@
       }
     });
 
-    sheetSelect.addEventListener("change", loadSelectedSheet);
+    sheetSelect.addEventListener("change", () => {
+      populateConditionSheetOptions();
+      loadSelectedSheet();
+    });
+    conditionSheetSelect.addEventListener("change", loadConditionsFromSheet);
     addFilterButton.addEventListener("click", () => {
       if (!headers.length) return;
       filtersContainer.append(createFilterRow());
@@ -250,7 +274,7 @@
         return;
       }
 
-      const rawHeaders = matrix[0];
+      const rawHeaders = matrix[0].slice(0, DISPLAY_COLUMN_COUNT);
       headers = rawHeaders.map((value, index) => {
         const label = String(value).trim() || "คอลัมน์ " + (index + 1);
         let uniqueLabel = label;
@@ -263,14 +287,100 @@
         }
         return uniqueLabel;
       });
-      rows = matrix.slice(1).map((row) => headers.map((_, index) => valueToText(row[index])));
+      const sourceRows = matrix.slice(1);
+      const hasDataAfterColumnO = sourceRows.some((row) => row.slice(DISPLAY_COLUMN_COUNT).some((value) => valueToText(value).trim() !== ""));
+      rows = sourceRows
+        .map((row) => headers.map((_, index) => valueToText(row[index])))
+        .filter((row) => row.some((value) => value.trim() !== ""));
       selectedColumns = headers.map((_, index) => index);
       renderColumns();
-      filtersContainer.replaceChildren();
-      filtersContainer.append(createFilterRow());
       addFilterButton.disabled = false;
-      updateResults();
-      showNotice("โหลดชีต “" + sheetSelect.value + "” แล้ว");
+      loadConditionsFromSheet();
+      if (!rows.length && hasDataAfterColumnO && !conditionError) {
+        showNotice("ไม่พบข้อมูลในคอลัมน์ A–O ของชีตนี้ แต่พบข้อมูลหลังคอลัมน์ O ระบบจะแสดงเฉพาะ A–O ตามที่เลือก", true);
+      }
+    }
+
+    function isConditionSheetName(name) {
+      return /เงื่อนไข|condition|criteria/i.test(name);
+    }
+
+    function populateConditionSheetOptions() {
+      const currentConditionSheet = conditionSheetSelect.value;
+      conditionSheetSelect.replaceChildren();
+      const manualOption = document.createElement("option");
+      manualOption.value = "";
+      manualOption.textContent = "ไม่ใช้ชีตเงื่อนไข (กำหนดเอง)";
+      conditionSheetSelect.append(manualOption);
+
+      workbook.SheetNames.filter((name) => name !== sheetSelect.value).forEach((name) => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        conditionSheetSelect.append(option);
+      });
+
+      const availableNames = workbook.SheetNames.filter((name) => name !== sheetSelect.value);
+      if (availableNames.includes(currentConditionSheet)) {
+        conditionSheetSelect.value = currentConditionSheet;
+      } else {
+        conditionSheetSelect.value = availableNames.find(isConditionSheetName) || "";
+      }
+    }
+
+    function loadConditionsFromSheet() {
+      conditionError = "";
+      filtersContainer.replaceChildren();
+      const conditionSheetName = conditionSheetSelect.value;
+      if (!conditionSheetName) {
+        filtersContainer.append(createFilterRow());
+        updateResults();
+        showNotice("โหลดชีตข้อมูล “" + sheetSelect.value + "” แล้ว — สามารถกำหนดเงื่อนไขบนหน้าเว็บได้");
+        return;
+      }
+
+      try {
+        const conditionSheet = workbook.Sheets[conditionSheetName];
+        const matrix = XLSX.utils.sheet_to_json(conditionSheet, { header: 1, raw: false, defval: "", blankrows: false });
+        if (!matrix.length) throw new Error("ชีตเงื่อนไขไม่มีหัวตาราง");
+        const conditionHeaders = matrix[0].map((value) => String(value).trim());
+        const columnIndex = conditionHeaders.indexOf("คอลัมน์");
+        const operatorIndex = conditionHeaders.indexOf("เงื่อนไข");
+        const valueIndex = conditionHeaders.indexOf("ค่า");
+        if ([columnIndex, operatorIndex, valueIndex].includes(-1)) {
+          throw new Error("ชีตเงื่อนไขต้องมีหัวคอลัมน์ “คอลัมน์”, “เงื่อนไข” และ “ค่า” ในแถวแรก");
+        }
+
+        const conditions = [];
+        matrix.slice(1).forEach((cells, rowIndex) => {
+          const sheetRow = rowIndex + 2;
+          const columnName = String(cells[columnIndex] ?? "").trim();
+          const operatorLabel = String(cells[operatorIndex] ?? "").trim();
+          const value = String(cells[valueIndex] ?? "").trim();
+          if (!columnName && !operatorLabel && !value) return;
+
+          const column = headers.indexOf(columnName);
+          if (column < 0) throw new Error("แถว " + sheetRow + ": ไม่พบคอลัมน์ “" + columnName + "” ในชีตข้อมูล");
+          const operator = filterOperators.find((item) => item.label === operatorLabel || item.value === operatorLabel);
+          if (!operator) {
+            throw new Error("แถว " + sheetRow + ": เงื่อนไขต้องเป็น " + filterOperators.map((item) => item.label).join(", "));
+          }
+          if (!value && !["empty", "notEmpty"].includes(operator.value)) {
+            throw new Error("แถว " + sheetRow + ": กรุณาระบุค่า หรือเลือกเงื่อนไข “ค่าว่าง”/“ไม่ว่าง”");
+          }
+          conditions.push({ column, operator: operator.value, value });
+        });
+
+        if (!conditions.length) throw new Error("ชีตเงื่อนไขยังไม่มีรายการเงื่อนไข");
+        conditions.forEach((condition) => filtersContainer.append(createFilterRow(condition)));
+        updateResults();
+        showNotice("โหลดชีตข้อมูล “" + sheetSelect.value + "” และเงื่อนไข " + conditions.length + " ข้อจากชีต “" + conditionSheetName + "” แล้ว");
+      } catch (error) {
+        conditionError = error instanceof Error ? error.message : "อ่านชีตเงื่อนไขไม่สำเร็จ";
+        filtersContainer.append(createFilterRow());
+        updateResults();
+        showNotice(conditionError, true);
+      }
     }
 
     function valueToText(value) {
@@ -279,18 +389,11 @@
       return String(value);
     }
 
-    function createFilterRow() {
+    function createFilterRow(initialCondition = null) {
       const row = document.createElement("div");
       row.className = "filter-row";
       const columnLabel = makeSelectField("คอลัมน์", headers.map((header, index) => ({ value: String(index), label: header })));
-      const operatorLabel = makeSelectField("เงื่อนไข", [
-        { value: "contains", label: "มีคำว่า" },
-        { value: "notContains", label: "ไม่มีคำว่า" },
-        { value: "equals", label: "เท่ากับ" },
-        { value: "notEquals", label: "ไม่เท่ากับ" },
-        { value: "empty", label: "ค่าว่าง" },
-        { value: "notEmpty", label: "ไม่ว่าง" }
-      ]);
+      const operatorLabel = makeSelectField("เงื่อนไข", filterOperators);
       const valueLabel = document.createElement("label");
       valueLabel.className = "field";
       valueLabel.append(document.createTextNode("คำที่ใช้ค้นหา"));
@@ -298,6 +401,15 @@
       valueInput.type = "text";
       valueInput.placeholder = "พิมพ์คำหรือข้อความ";
       valueInput.autocomplete = "off";
+      if (initialCondition) {
+        columnLabel.querySelector("select").value = String(initialCondition.column);
+        operatorLabel.querySelector("select").value = initialCondition.operator;
+        valueInput.value = initialCondition.value;
+        if (["empty", "notEmpty"].includes(initialCondition.operator)) {
+          valueInput.disabled = true;
+          valueInput.placeholder = "ไม่ต้องระบุคำ";
+        }
+      }
       valueLabel.append(valueInput);
       const removeButton = document.createElement("button");
       removeButton.className = "remove-filter";
@@ -355,6 +467,11 @@
     }
 
     function updateResults() {
+      if (conditionError) {
+        filteredRows = [];
+        renderTable();
+        return;
+      }
       const filterRows = Array.from(filtersContainer.querySelectorAll(".filter-row"));
       const conditions = filterRows.map((filterRow) => {
         const selects = filterRow.querySelectorAll("select");
@@ -387,16 +504,19 @@
         exportButton.disabled = true;
         return;
       }
+      if (conditionError) {
+        resultTable.innerHTML = '<tbody><tr><td class="table-empty">ชีตเงื่อนไขมีข้อผิดพลาด: ' + escapeHTML(conditionError) + "</td></tr></tbody>";
+        resultsMeta.textContent = "กรุณาแก้ไขไฟล์ หรือเลือก “ไม่ใช้ชีตเงื่อนไข”";
+        copyButton.disabled = true;
+        exportButton.disabled = true;
+        return;
+      }
       const visibleColumns = selectedColumns;
       resultsMeta.textContent = "พบ " + filteredRows.length.toLocaleString("th-TH") + " จาก " + rows.length.toLocaleString("th-TH") + " แถว";
       copyButton.disabled = filteredRows.length === 0 || visibleColumns.length === 0;
       exportButton.disabled = filteredRows.length === 0 || visibleColumns.length === 0;
       if (!visibleColumns.length) {
         resultTable.innerHTML = '<tbody><tr><td class="table-empty">เลือกอย่างน้อย 1 คอลัมน์เพื่อแสดงผล</td></tr></tbody>';
-        return;
-      }
-      if (!filteredRows.length) {
-        resultTable.innerHTML = '<tbody><tr><td class="table-empty">ไม่พบข้อมูลตามเงื่อนไขที่เลือก</td></tr></tbody>';
         return;
       }
 
@@ -410,6 +530,17 @@
       });
       thead.append(headerRow);
       const tbody = document.createElement("tbody");
+      if (!filteredRows.length) {
+        const emptyRow = document.createElement("tr");
+        const emptyCell = document.createElement("td");
+        emptyCell.className = "table-empty";
+        emptyCell.colSpan = visibleColumns.length;
+        emptyCell.textContent = rows.length ? "ไม่พบข้อมูลตามเงื่อนไขที่เลือก" : "ไม่พบข้อมูลในคอลัมน์ A–O";
+        emptyRow.append(emptyCell);
+        tbody.append(emptyRow);
+        resultTable.append(thead, tbody);
+        return;
+      }
       filteredRows.slice(0, 200).forEach((row) => {
         const tr = document.createElement("tr");
         visibleColumns.forEach((index) => {
@@ -530,6 +661,7 @@
       rows = [];
       filteredRows = [];
       selectedColumns = [];
+      conditionError = "";
       addFilterButton.disabled = true;
       filtersContainer.innerHTML = '<div class="filter-placeholder">อัปโหลดไฟล์ก่อน เพื่อเลือกคอลัมน์สำหรับกรอง</div>';
       columnList.innerHTML = '<span class="empty-columns">อัปโหลดไฟล์เพื่อแสดงรายการคอลัมน์</span>';
