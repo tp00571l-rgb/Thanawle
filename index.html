@@ -161,7 +161,7 @@
             <div class="results-meta" id="results-meta" aria-live="polite">ยังไม่มีข้อมูล</div>
           </div>
           <div class="results-actions">
-            <button class="secondary" id="copy-button" type="button" disabled>คัดลอกไป LINE</button>
+            <button class="secondary" id="copy-button" type="button" disabled>คัดลอกตาราง</button>
             <button class="primary" id="export-button" type="button" disabled>ส่งออก Excel</button>
           </div>
         </div>
@@ -430,27 +430,75 @@
     async function copyResults() {
       const visibleColumns = selectedColumns;
       if (!filteredRows.length || !visibleColumns.length) return;
-      const text = filteredRows.map((row) => visibleColumns
-        .map((index) => headers[index] + ": " + (row[index] || "-"))
-        .join("\n")).join("\n\n");
+      const text = [
+        visibleColumns.map((index) => headers[index]).join("\t"),
+        ...filteredRows.map((row) => visibleColumns.map((index) => row[index] ?? "").join("\t"))
+      ].join("\n");
+      const html = buildClipboardTable(visibleColumns);
+
       try {
-        await navigator.clipboard.writeText(text);
-        showNotice("คัดลอก " + filteredRows.length.toLocaleString("th-TH") + " แถวแล้ว พร้อมวางใน LINE");
-      } catch (error) {
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.append(textarea);
-        textarea.select();
-        const copied = document.execCommand("copy");
-        textarea.remove();
-        if (!copied) {
-          showNotice("คัดลอกไม่สำเร็จ กรุณาเปิดหน้านี้ผ่าน HTTPS หรือ localhost แล้วลองอีกครั้ง", true);
-          return;
+        if (navigator.clipboard?.write && window.ClipboardItem) {
+          const item = new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" })
+          });
+          await navigator.clipboard.write([item]);
+        } else if (!copyRichTextWithExecCommand(html)) {
+          throw new Error("Rich clipboard is not available");
         }
-        showNotice("คัดลอก " + filteredRows.length.toLocaleString("th-TH") + " แถวแล้ว พร้อมวางใน LINE");
+        showNotice("คัดลอกตาราง " + filteredRows.length.toLocaleString("th-TH") + " แถวแล้ว พร้อมวางใน Teams");
+      } catch (error) {
+        try {
+          if (!navigator.clipboard?.writeText) throw new Error("Text clipboard is not available");
+          await navigator.clipboard.writeText(text);
+          showNotice("คัดลอกข้อมูลแล้ว แต่เบราว์เซอร์ไม่รองรับการคัดลอกเส้นตาราง กรุณาเปิดผ่าน HTTPS เพื่อวางเป็นตารางใน Teams", true);
+        } catch (fallbackError) {
+          showNotice("คัดลอกไม่สำเร็จ กรุณาเปิดหน้านี้ผ่าน HTTPS หรือ localhost แล้วลองอีกครั้ง", true);
+        }
       }
+    }
+
+    function buildClipboardTable(visibleColumns) {
+      const headerCells = visibleColumns.map((index) =>
+        '<th style="border:1px solid #808080;padding:6px 10px;background-color:#e8edf5;font-weight:bold;text-align:left;">' +
+        escapeHTML(headers[index]) + "</th>"
+      ).join("");
+      const bodyRows = filteredRows.map((row) => {
+        const cells = visibleColumns.map((index) =>
+          '<td style="border:1px solid #808080;padding:6px 10px;text-align:left;">' +
+          escapeHTML(row[index] ?? "").replace(/\r?\n/g, "<br>") + "</td>"
+        ).join("");
+        return "<tr>" + cells + "</tr>";
+      }).join("");
+      return '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border:1px solid #808080;">' +
+        "<thead><tr>" + headerCells + "</tr></thead><tbody>" + bodyRows + "</tbody></table>";
+    }
+
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+    }
+
+    function copyRichTextWithExecCommand(html) {
+      const container = document.createElement("div");
+      container.contentEditable = "true";
+      container.style.cssText = "position:fixed;left:-10000px;top:0";
+      container.innerHTML = html;
+      document.body.append(container);
+      const range = document.createRange();
+      range.selectNodeContents(container);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const copied = document.execCommand("copy");
+      selection.removeAllRanges();
+      container.remove();
+      return copied;
     }
 
     function exportResults() {
