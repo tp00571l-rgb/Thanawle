@@ -162,6 +162,7 @@
           </div>
           <div class="results-actions">
             <button class="secondary" id="copy-button" type="button" disabled>คัดลอกไป LINE</button>
+            <button class="primary" id="export-button" type="button" disabled>ส่งออก Excel</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -187,6 +188,7 @@
     const resultsMeta = document.getElementById("results-meta");
     const resultTable = document.getElementById("result-table");
     const copyButton = document.getElementById("copy-button");
+    const exportButton = document.getElementById("export-button");
 
     let workbook = null;
     let headers = [];
@@ -235,6 +237,7 @@
       updateResults();
     });
     copyButton.addEventListener("click", copyResults);
+    exportButton.addEventListener("click", exportResults);
 
     function loadSelectedSheet() {
       const sheet = workbook && workbook.Sheets[sheetSelect.value];
@@ -380,11 +383,13 @@
         resultTable.innerHTML = '<tbody><tr><td class="table-empty">อัปโหลดไฟล์ Excel เพื่อเริ่มต้น</td></tr></tbody>';
         resultsMeta.textContent = "ยังไม่มีข้อมูล";
         copyButton.disabled = true;
+        exportButton.disabled = true;
         return;
       }
       const visibleColumns = selectedColumns;
       resultsMeta.textContent = "พบ " + filteredRows.length.toLocaleString("th-TH") + " จาก " + rows.length.toLocaleString("th-TH") + " แถว";
       copyButton.disabled = filteredRows.length === 0 || visibleColumns.length === 0;
+      exportButton.disabled = filteredRows.length === 0 || visibleColumns.length === 0;
       if (!visibleColumns.length) {
         resultTable.innerHTML = '<tbody><tr><td class="table-empty">เลือกอย่างน้อย 1 คอลัมน์เพื่อแสดงผล</td></tr></tbody>';
         return;
@@ -448,6 +453,29 @@
       }
     }
 
+    function exportResults() {
+      const visibleColumns = selectedColumns;
+      if (!filteredRows.length || !visibleColumns.length) return;
+      if (!window.XLSX) {
+        showNotice("ส่งออกไม่สำเร็จ เพราะโหลดตัวอ่าน Excel ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้า", true);
+        return;
+      }
+
+      try {
+        const data = [
+          visibleColumns.map((index) => headers[index]),
+          ...filteredRows.map((row) => visibleColumns.map((index) => row[index]))
+        ];
+        const worksheet = XLSX.utils.aoa_to_sheet(data);
+        const exportedWorkbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(exportedWorkbook, worksheet, "ข้อมูลที่กรอง");
+        XLSX.writeFile(exportedWorkbook, "ข้อมูลที่กรองแล้ว.xlsx");
+        showNotice("ส่งออกข้อมูล " + filteredRows.length.toLocaleString("th-TH") + " แถวเป็นไฟล์ Excel แล้ว");
+      } catch (error) {
+        showNotice(error instanceof Error ? "ส่งออกไฟล์ Excel ไม่สำเร็จ: " + error.message : "ส่งออกไฟล์ Excel ไม่สำเร็จ", true);
+      }
+    }
+
     function resetData(message) {
       headers = [];
       rows = [];
@@ -458,6 +486,7 @@
       columnList.innerHTML = '<span class="empty-columns">อัปโหลดไฟล์เพื่อแสดงรายการคอลัมน์</span>';
       resultsMeta.textContent = message;
       copyButton.disabled = true;
+      exportButton.disabled = true;
       resultTable.innerHTML = '<tbody><tr><td class="table-empty">' + message + "</td></tr></tbody>";
     }
 
