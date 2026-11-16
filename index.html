@@ -72,6 +72,9 @@
     .column-list { display: flex; flex-wrap: wrap; gap: 8px; }
     .column-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: #101722; color: #dce5f1; font-size: 13px; cursor: pointer; }
     .column-chip input { accent-color: var(--accent); }
+    .relax-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .relax-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; background: #101722; color: #dce5f1; font-size: 13px; cursor: pointer; }
+    .relax-chip input { accent-color: var(--accent); }
     .empty-columns { color: var(--muted); font-size: 13px; }
     .results-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
     .results-meta { color: var(--muted); font-size: 13px; }
@@ -149,6 +152,17 @@
         </div>
       </section>
 
+      <section class="card" aria-labelledby="relax-heading">
+        <div class="section-heading">
+          <div class="heading-left">
+            <span class="step">＋</span>
+            <div><h2 id="relax-heading">กรองข้อมูลคอลัมน์ A</h2><p class="subheading">เลือกค่าที่ไม่ซ้ำจากคอลัมน์ A:A แล้วส่งออกเฉพาะรายการที่เลือก</p></div>
+          </div>
+          <button class="secondary" id="relax-button" type="button" disabled aria-expanded="false" aria-controls="relax-list">ข้อมูลรีแลค</button>
+        </div>
+        <div class="relax-list hidden" id="relax-list"></div>
+      </section>
+
       <section class="card" aria-labelledby="columns-heading">
         <div class="section-heading">
           <div class="heading-left">
@@ -192,6 +206,8 @@
     const filtersContainer = document.getElementById("filters");
     const addFilterButton = document.getElementById("add-filter");
     const columnList = document.getElementById("column-list");
+    const relaxButton = document.getElementById("relax-button");
+    const relaxList = document.getElementById("relax-list");
     const resultsMeta = document.getElementById("results-meta");
     const resultTable = document.getElementById("result-table");
     const copyButton = document.getElementById("copy-button");
@@ -203,6 +219,9 @@
     let rows = [];
     let filteredRows = [];
     let selectedColumns = [];
+    let relaxValues = [];
+    let selectedRelaxValues = new Set();
+    let relaxMode = false;
     let conditionError = "";
     const filterOperators = [
       { value: "contains", label: "มีคำว่า" },
@@ -263,6 +282,12 @@
     });
     copyButton.addEventListener("click", copyResults);
     exportButton.addEventListener("click", exportResults);
+    relaxButton.addEventListener("click", () => {
+      relaxMode = !relaxMode;
+      relaxButton.setAttribute("aria-expanded", String(relaxMode));
+      relaxList.classList.toggle("hidden", !relaxMode);
+      updateResults();
+    });
 
     function loadSelectedSheet() {
       const sheet = workbook && workbook.Sheets[sheetSelect.value];
@@ -273,6 +298,16 @@
         showNotice("ชีตนี้ไม่มีข้อมูล", true);
         return;
       }
+
+      relaxValues = Array.from(new Set(matrix
+        .map((row) => valueToText(row[0]).trim())
+        .filter((value) => value !== "")));
+      selectedRelaxValues = new Set();
+      relaxMode = false;
+      relaxButton.disabled = relaxValues.length === 0;
+      relaxButton.setAttribute("aria-expanded", "false");
+      relaxList.classList.add("hidden");
+      renderRelaxValues();
 
       const rawHeaders = matrix[0].slice(0, DISPLAY_COLUMN_COUNT);
       headers = rawHeaders.map((value, index) => {
@@ -299,6 +334,32 @@
       if (!rows.length && hasDataAfterColumnO && !conditionError) {
         showNotice("ไม่พบข้อมูลในคอลัมน์ A–O ของชีตนี้ แต่พบข้อมูลหลังคอลัมน์ O ระบบจะแสดงเฉพาะ A–O ตามที่เลือก", true);
       }
+    }
+
+    function renderRelaxValues() {
+      relaxList.replaceChildren();
+      if (!relaxValues.length) {
+        const empty = document.createElement("span");
+        empty.className = "empty-columns";
+        empty.textContent = "ไม่พบข้อมูลในคอลัมน์ A";
+        relaxList.append(empty);
+        return;
+      }
+
+      relaxValues.forEach((value) => {
+        const label = document.createElement("label");
+        label.className = "relax-chip";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = value;
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) selectedRelaxValues.add(value);
+          else selectedRelaxValues.delete(value);
+          updateResults();
+        });
+        label.append(checkbox, document.createTextNode(value));
+        relaxList.append(label);
+      });
     }
 
     function isConditionSheetName(name) {
@@ -511,6 +572,44 @@
         exportButton.disabled = true;
         return;
       }
+      if (relaxMode) {
+        const values = relaxValues.filter((value) => selectedRelaxValues.has(value));
+        resultsMeta.textContent = "เลือก " + values.length.toLocaleString("th-TH") + " จาก " + relaxValues.length.toLocaleString("th-TH") + " รายการในคอลัมน์ A";
+        copyButton.disabled = values.length === 0;
+        exportButton.disabled = values.length === 0;
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        const th = document.createElement("th");
+        th.scope = "col";
+        th.textContent = "ข้อมูลรีแลค";
+        headerRow.append(th);
+        thead.append(headerRow);
+        const tbody = document.createElement("tbody");
+        if (!values.length) {
+          const emptyRow = document.createElement("tr");
+          const emptyCell = document.createElement("td");
+          emptyCell.className = "table-empty";
+          emptyCell.textContent = "ติ๊กเลือกรายการจากคอลัมน์ A ที่ต้องการส่งออก";
+          emptyRow.append(emptyCell);
+          tbody.append(emptyRow);
+        } else {
+          values.slice(0, 200).forEach((value) => {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.append(td);
+            tbody.append(tr);
+          });
+        }
+        resultTable.append(thead, tbody);
+        if (values.length > 200) {
+          const note = document.createElement("caption");
+          note.style.cssText = "caption-side: bottom; padding: 12px; color: var(--muted); text-align: left";
+          note.textContent = "แสดงตัวอย่าง 200 รายการแรก — การส่งออกจะรวมครบ " + values.length.toLocaleString("th-TH") + " รายการ";
+          resultTable.append(note);
+        }
+        return;
+      }
       const visibleColumns = selectedColumns;
       resultsMeta.textContent = "พบ " + filteredRows.length.toLocaleString("th-TH") + " จาก " + rows.length.toLocaleString("th-TH") + " แถว";
       copyButton.disabled = filteredRows.length === 0 || visibleColumns.length === 0;
@@ -560,6 +659,14 @@
     }
 
     async function copyResults() {
+      if (relaxMode) {
+        const values = relaxValues.filter((value) => selectedRelaxValues.has(value));
+        if (!values.length) return;
+        const text = ["ข้อมูลรีแลค", ...values].join("\n");
+        const html = buildSingleColumnClipboardTable("ข้อมูลรีแลค", values);
+        await copyClipboardContent(text, html, values.length);
+        return;
+      }
       const visibleColumns = selectedColumns;
       if (!filteredRows.length || !visibleColumns.length) return;
       const text = [
@@ -568,6 +675,10 @@
       ].join("\n");
       const html = buildClipboardTable(visibleColumns);
 
+      await copyClipboardContent(text, html, filteredRows.length);
+    }
+
+    async function copyClipboardContent(text, html, rowCount) {
       try {
         if (navigator.clipboard?.write && window.ClipboardItem) {
           const item = new ClipboardItem({
@@ -578,16 +689,24 @@
         } else if (!copyRichTextWithExecCommand(html)) {
           throw new Error("Rich clipboard is not available");
         }
-        showNotice("คัดลอกตาราง " + filteredRows.length.toLocaleString("th-TH") + " แถวแล้ว พร้อมวางใน Teams");
+        showNotice("คัดลอกตาราง " + rowCount.toLocaleString("th-TH") + " รายการแล้ว");
       } catch (error) {
         try {
           if (!navigator.clipboard?.writeText) throw new Error("Text clipboard is not available");
           await navigator.clipboard.writeText(text);
-          showNotice("คัดลอกข้อมูลแล้ว แต่เบราว์เซอร์ไม่รองรับการคัดลอกเส้นตาราง กรุณาเปิดผ่าน HTTPS เพื่อวางเป็นตารางใน Teams", true);
+          showNotice("คัดลอกข้อมูลแล้ว แต่เบราว์เซอร์ไม่รองรับการคัดลอกเส้นตาราง กรุณาเปิดผ่าน HTTPS เพื่อวางเป็นตาราง", true);
         } catch (fallbackError) {
           showNotice("คัดลอกไม่สำเร็จ กรุณาเปิดหน้านี้ผ่าน HTTPS หรือ localhost แล้วลองอีกครั้ง", true);
         }
       }
+    }
+
+    function buildSingleColumnClipboardTable(title, values) {
+      const bodyRows = values.map((value) => "<tr><td style=\"border:1px solid #808080;padding:6px 10px;text-align:left;\">" +
+        escapeHTML(value).replace(/\r?\n/g, "<br>") + "</td></tr>").join("");
+      return '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;border:1px solid #808080;">' +
+        '<thead><tr><th style="border:1px solid #808080;padding:6px 10px;background-color:#e8edf5;font-weight:bold;text-align:left;">' +
+        escapeHTML(title) + "</th></tr></thead><tbody>" + bodyRows + "</tbody></table>";
     }
 
     function buildClipboardTable(visibleColumns) {
@@ -634,6 +753,25 @@
     }
 
     function exportResults() {
+      if (relaxMode) {
+        const values = relaxValues.filter((value) => selectedRelaxValues.has(value));
+        if (!values.length) return;
+        if (!window.XLSX) {
+          showNotice("ส่งออกไม่สำเร็จ เพราะโหลดตัวอ่าน Excel ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วรีเฟรชหน้า", true);
+          return;
+        }
+
+        try {
+          const worksheet = XLSX.utils.aoa_to_sheet([["ข้อมูลรีแลค"], ...values.map((value) => [value])]);
+          const exportedWorkbook = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(exportedWorkbook, worksheet, "ข้อมูลรีแลค");
+          XLSX.writeFile(exportedWorkbook, "ข้อมูลรีแลค.xlsx");
+          showNotice("ส่งออกข้อมูลรีแลค " + values.length.toLocaleString("th-TH") + " รายการเป็นไฟล์ Excel แล้ว");
+        } catch (error) {
+          showNotice(error instanceof Error ? "ส่งออกไฟล์ Excel ไม่สำเร็จ: " + error.message : "ส่งออกไฟล์ Excel ไม่สำเร็จ", true);
+        }
+        return;
+      }
       const visibleColumns = selectedColumns;
       if (!filteredRows.length || !visibleColumns.length) return;
       if (!window.XLSX) {
@@ -661,8 +799,15 @@
       rows = [];
       filteredRows = [];
       selectedColumns = [];
+      relaxValues = [];
+      selectedRelaxValues = new Set();
+      relaxMode = false;
       conditionError = "";
       addFilterButton.disabled = true;
+      relaxButton.disabled = true;
+      relaxButton.setAttribute("aria-expanded", "false");
+      relaxList.classList.add("hidden");
+      relaxList.replaceChildren();
       filtersContainer.innerHTML = '<div class="filter-placeholder">อัปโหลดไฟล์ก่อน เพื่อเลือกคอลัมน์สำหรับกรอง</div>';
       columnList.innerHTML = '<span class="empty-columns">อัปโหลดไฟล์เพื่อแสดงรายการคอลัมน์</span>';
       resultsMeta.textContent = message;
