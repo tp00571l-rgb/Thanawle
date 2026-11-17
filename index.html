@@ -272,9 +272,9 @@
         .results-head h2 { font-size: 14px; }
         .results-head p { margin-top: 3px; color: var(--muted); font-size: 11px; }
         .table-wrap { min-height: 175px; overflow: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
         thead { background: #151a24; }
-        th, td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.055); text-align: left; white-space: nowrap; }
+        th, td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.055); text-align: left; white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
         th { position: sticky; top: 0; z-index: 1; color: #aab5c7; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
         td { color: #d1d7e1; }
         tbody tr:hover { background: rgba(255,255,255,.025); }
@@ -551,6 +551,7 @@
             }
 
             const head = document.createElement("tr");
+            elements.table.style.minWidth = `${headers.length * 140}px`;
             headers.forEach((header) => {
                 const th = document.createElement("th");
                 th.textContent = header;
