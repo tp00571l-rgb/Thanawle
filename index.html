@@ -3,145 +3,666 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#090b10">
     <title>ระบบคัดกรองและสรุปรายการใบงาน | MA Ticket Management</title>
-    <!-- ฟอนต์ Sarabun และ Inter เพื่อความสวยงามและเป็นทางการ -->
-    <link rel="preconnect" href="https://googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
-    <link href="https://googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://cloudflare.com"></script>
-    <script src="https://cloudflare.com"></script>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
+        :root {
+            color-scheme: dark;
+            font-family: "Sarabun", "Inter", sans-serif;
+            background: #090b10;
+            color: #e7eaf0;
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+            --surface: #11151e;
+            --surface-raised: #171c27;
+            --line: #272e3b;
+            --muted: #929bad;
+            --blue: #6ea8fe;
+            --cyan: #66e3d2;
+        }
+
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Sarabun', 'Inter', sans-serif;
+            margin: 0;
+            min-width: 320px;
+            min-height: 100vh;
+            background:
+                radial-gradient(ellipse at 10% -15%, rgba(52, 105, 212, .16), transparent 40rem),
+                radial-gradient(ellipse at 95% 5%, rgba(39, 183, 162, .08), transparent 34rem),
+                #090b10;
+        }
+        button, input { font: inherit; }
+        button { cursor: pointer; }
+        .topbar {
+            position: sticky;
+            z-index: 5;
+            top: 0;
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            background: rgba(12, 15, 22, .9);
+            backdrop-filter: blur(16px);
+        }
+        .topbar-inner, main {
+            width: min(1120px, calc(100% - 40px));
+            margin: 0 auto;
+        }
+        .topbar-inner {
+            min-height: 76px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border: 1px solid rgba(110,168,254,.25);
+            border-radius: 13px;
+            color: var(--blue);
+            background: linear-gradient(145deg, rgba(70,126,230,.2), rgba(38,63,105,.16));
+        }
+        .brand-mark svg { width: 21px; height: 21px; }
+        h1, h2, p { margin: 0; }
+        h1 { font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+        .brand p { margin-top: 2px; color: var(--muted); font-size: 12px; }
+        .connection {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 11px;
+            border: 1px solid #34313a;
+            border-radius: 99px;
+            color: #d3b98a;
+            background: #191711;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        .connection-dot { width: 7px; height: 7px; border-radius: 50%; background: #e3b45e; }
+        main { padding: 30px 0 56px; }
+        .intro { margin-bottom: 21px; }
+        .eyebrow {
+            margin-bottom: 7px;
+            color: var(--cyan);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+        .intro h2 { font-size: clamp(20px, 3vw, 25px); letter-spacing: -.025em; }
+        .intro p { margin-top: 5px; color: var(--muted); font-size: 13px; }
+        .panel {
+            margin-top: 16px;
+            padding: 22px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(20,25,35,.96), rgba(15,19,27,.96));
+            box-shadow: 0 14px 40px rgba(0,0,0,.14);
+        }
+        .panel-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding-bottom: 17px;
+            border-bottom: 1px solid rgba(255,255,255,.06);
+        }
+        .heading-title { display: flex; align-items: center; gap: 10px; }
+        .step {
+            width: 25px;
+            height: 25px;
+            display: inline-grid;
+            place-items: center;
+            border: 1px solid rgba(110,168,254,.28);
+            border-radius: 8px;
+            color: var(--blue);
+            background: rgba(65,118,214,.12);
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .panel-heading h2 { font-size: 15px; font-weight: 650; }
+        .panel-note { margin: 4px 0 0 35px; color: var(--muted); font-size: 12px; }
+        .upload-zone {
+            min-height: 103px;
+            margin-top: 17px;
+            padding: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            border: 1px dashed #3b4658;
+            border-radius: 12px;
+            background: rgba(255,255,255,.018);
+            transition: border-color .2s, background .2s;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #638bd0;
+            background: rgba(71,119,204,.07);
+        }
+        .upload-info { display: flex; align-items: center; gap: 13px; min-width: 0; }
+        .upload-icon {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+            border: 1px solid #303a4a;
+            border-radius: 11px;
+            color: var(--blue);
+            background: #171d28;
+        }
+        .upload-icon svg { width: 21px; height: 21px; }
+        .upload-info strong { display: block; overflow: hidden; color: #e3e7ef; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+        .upload-info p { margin-top: 4px; color: var(--muted); font-size: 11px; }
+        .file-input { display: none; }
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            min-height: 36px;
+            padding: 8px 13px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            color: #cbd2df;
+            background: #1a202b;
+            font-size: 12px;
+            font-weight: 600;
+            transition: .15s ease;
+        }
+        .button:hover { border-color: #46546b; background: #222a38; }
+        .button.primary {
+            border-color: #4d83df;
+            color: #fff;
+            background: linear-gradient(135deg, #3977dc, #3265bd);
+            box-shadow: 0 5px 14px rgba(44,100,196,.2);
+        }
+        .button.primary:hover { border-color: #6da0f4; background: #427fe0; }
+        .button.ghost { border-color: transparent; background: transparent; color: #aab4c4; }
+        .button.ghost:hover { border-color: var(--line); background: #191e28; color: #e2e7ef; }
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 17px 18px;
+            padding-top: 19px;
+        }
+        .field { min-width: 0; }
+        .field.wide { grid-column: span 2; }
+        .field-label, .label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 7px;
+            color: #c5ccda;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .field-label .hint { color: #828da0; font-size: 10px; font-weight: 400; }
+        .control {
+            width: 100%;
+            min-height: 39px;
+            padding: 9px 11px;
+            border: 1px solid #303847;
+            border-radius: 9px;
+            outline: none;
+            color: #e4e9f1;
+            background: #0e1219;
+            font-size: 12px;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .control::placeholder { color: #687386; }
+        .control:focus { border-color: #5785d0; box-shadow: 0 0 0 3px rgba(74,126,211,.13); }
+        .time-row { display: flex; align-items: center; gap: 9px; }
+        .time-row .control { min-width: 0; }
+        .time-separator { color: #798497; font-size: 11px; }
+        .check-label { display: inline-flex; align-items: center; gap: 6px; color: #aab4c4; font-size: 11px; font-weight: 500; cursor: pointer; }
+        .check-label input { accent-color: #6196f2; }
+        .exclude-field .field-label { color: #e39b9b; }
+        .filter-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-top: 19px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255,255,255,.06);
+        }
+        .sheet-words {
+            max-width: 62%;
+            padding: 8px 11px;
+            border: 1px solid #292f3b;
+            border-radius: 9px;
+            color: #9da8ba;
+            background: rgba(255,255,255,.02);
+            font-size: 11px;
+        }
+        .sheet-words strong { color: #c8d0de; }
+        .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .stat {
+            padding: 15px 17px;
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            background: rgba(17,21,30,.82);
+        }
+        .stat-label { color: var(--muted); font-size: 11px; }
+        .stat-value { margin-top: 3px; color: #edf1f7; font-size: 23px; font-weight: 700; letter-spacing: -.03em; }
+        .stat-value.accent { color: var(--cyan); }
+        .results-panel { padding: 0; overflow: hidden; }
+        .results-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 17px 20px;
+            border-bottom: 1px solid var(--line);
+        }
+        .results-head h2 { font-size: 14px; }
+        .results-head p { margin-top: 3px; color: var(--muted); font-size: 11px; }
+        .table-wrap { min-height: 175px; overflow: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead { background: #151a24; }
+        th, td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.055); text-align: left; white-space: nowrap; }
+        th { position: sticky; top: 0; z-index: 1; color: #aab5c7; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+        td { color: #d1d7e1; }
+        tbody tr:hover { background: rgba(255,255,255,.025); }
+        .empty-state { padding: 38px 20px; color: var(--muted); text-align: center; font-size: 12px; }
+        .empty-state strong { display: block; margin-bottom: 4px; color: #cbd3df; font-size: 13px; }
+        .error { margin-top: 12px; color: #f0a3a3; font-size: 12px; }
+        .hidden { display: none !important; }
+        @media (max-width: 760px) {
+            .topbar-inner, main { width: min(100% - 28px, 1120px); }
+            .topbar-inner { min-height: 68px; }
+            .connection { padding: 7px 9px; font-size: 0; }
+            .connection-dot { width: 8px; height: 8px; }
+            .panel { padding: 17px; }
+            .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 12px; }
+            .filter-footer { align-items: stretch; flex-direction: column; }
+            .sheet-words { max-width: none; }
+            .actions { justify-content: flex-start; }
+        }
+        @media (max-width: 520px) {
+            .topbar-inner, main { width: calc(100% - 24px); }
+            .brand-mark { width: 38px; height: 38px; }
+            h1 { font-size: 13px; }
+            .brand p { font-size: 10px; }
+            main { padding-top: 23px; }
+            .panel { padding: 15px; border-radius: 13px; }
+            .upload-zone { align-items: stretch; flex-direction: column; }
+            .upload-info strong { max-width: 230px; }
+            .upload-zone .button { width: 100%; }
+            .filters { grid-template-columns: 1fr; }
+            .field.wide { grid-column: auto; }
+            .summary { gap: 8px; }
+            .stat { padding: 12px; }
+            .stat-value { font-size: 20px; }
+            .results-head { align-items: flex-start; flex-direction: column; }
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
-
-    <!-- แถบเมนูด้านบน (Top Navigation Bar) -->
-    <nav class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-lg">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 19V5m0 14h16M8 15v-3m4 3V7m4 8v-5m4 9V8"/>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold tracking-wide">ระบบคัดกรองและสรุปรายการใบงาน</h1>
-                    <p class="text-xs text-slate-400">MA Ticket Data Processing & LINE Summary System</p>
+                    <h1>ระบบคัดกรองและสรุปรายการใบงาน</h1>
+                    <p>MA Ticket Data Processing &amp; LINE Summary System</p>
                 </div>
             </div>
-            <div id="sheetStatus" class="text-xs bg-slate-800 border border-slate-700 px-3.5 py-1.5 rounded-full text-amber-300 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                <span>กำลังตรวจสอบการเชื่อมต่อฐานข้อมูล...</span>
+            <div class="connection" title="ระบบนี้ยังไม่ได้ตั้งค่าการเชื่อมต่อ Google Sheets">
+                <span class="connection-dot"></span>
+                <span>ยังไม่เชื่อมต่อ Google Sheets</span>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <!-- เนื้อหาหลัก -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <main>
+        <div class="intro">
+            <p class="eyebrow">Ticket workspace</p>
+            <h2>จัดการใบงานได้ในมุมมองเดียว</h2>
+            <p>นำเข้าไฟล์ กำหนดเงื่อนไข แล้วดูเฉพาะรายการที่ต้องการ</p>
+        </div>
 
-        <!-- ส่วนที่ 1: นำเข้าไฟล์ข้อมูล -->
-        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <section class="panel" aria-labelledby="uploadTitle">
+            <div class="panel-heading">
                 <div>
-                    <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <span class="bg-blue-100 text-blue-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-xs font-bold">1</span>
-                        นำเข้าไฟล์ข้อมูลใบงาน (Excel / CSV)
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5 ml-8">รองรับไฟล์มาตรฐาน 15 คอลัมน์ ระบบจะจับคู่ชื่อหัวตารางให้อัตโนมัติ</p>
+                    <div class="heading-title">
+                        <span class="step">1</span>
+                        <h2 id="uploadTitle">นำเข้าไฟล์ข้อมูลใบงาน</h2>
+                    </div>
+                    <p class="panel-note">รองรับ Excel (.xlsx, .xls) และ CSV · ประมวลผลภายในเบราว์เซอร์</p>
                 </div>
-                <div class="flex items-center gap-3 ml-8 md:ml-0">
-                    <button onclick="resetFilters()" class="text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-lg transition-colors cursor-pointer">
-                        รีเซ็ตค่าเริ่มต้น
-                    </button>
+                <button class="button ghost" id="resetButton" type="button">รีเซ็ตค่าเริ่มต้น</button>
+            </div>
+            <label class="upload-zone" id="dropZone" for="fileInput">
+                <span class="upload-info">
+                    <span class="upload-icon" aria-hidden="true">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 16V4m0 0L7 9m5-5 5 5M5 15v4a1 1 0 001 1h12a1 1 0 001-1v-4"/>
+                        </svg>
+                    </span>
+                    <span>
+                        <strong id="fileNameDisplay">เลือกหรือลากไฟล์ Excel / CSV มาวางที่นี่</strong>
+                        <p>ข้อมูลจะไม่ถูกอัปโหลดไปยังเซิร์ฟเวอร์</p>
+                    </span>
+                </span>
+                <span class="button primary">เลือกไฟล์ข้อมูล</span>
+                <input class="file-input" type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+            </label>
+            <p class="error hidden" id="errorMessage" role="alert"></p>
+        </section>
+
+        <section class="panel" aria-labelledby="filterTitle">
+            <div class="panel-heading">
+                <div>
+                    <div class="heading-title">
+                        <span class="step">2</span>
+                        <h2 id="filterTitle">กำหนดเงื่อนไขการคัดกรอง</h2>
+                    </div>
+                    <p class="panel-note">กรองข้อมูลตามพื้นที่ เวลา สถานะ และคำที่ระบุ</p>
                 </div>
             </div>
 
-            <div class="mt-4 ml-0 md:ml-8">
-                <label class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl bg-slate-50/70 transition-colors cursor-pointer">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-white p-2.5 rounded-lg shadow-sm border border-slate-200 text-blue-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <p id="fileNameDisplay" class="text-sm font-semibold text-slate-700">คลิกเพื่อเลือกไฟล์ Excel (.xlsx, .xls) หรือ CSV จากเครื่องของคุณ</p>
-                            <p class="text-xs text-slate-500">ข้อมูลทั้งหมดจะถูกประมวลผลภายในเครื่องของคุณอย่างปลอดภัย</p>
-                        </div>
+            <div class="filters">
+                <div class="field">
+                    <label class="field-label" for="filterRegion">พื้นที่รับผิดชอบ <span class="hint">Region</span></label>
+                    <input class="control" type="text" id="filterRegion" value="BKK" placeholder="เว้นว่างเพื่อแสดงทั้งหมด">
+                </div>
+                <div class="field">
+                    <label class="field-label" for="filterTitle">คำค้นหาในหัวข้อ <span class="hint">Title</span></label>
+                    <input class="control" type="text" id="filterTitle" value="Los" placeholder="เว้นว่างเพื่อแสดงทั้งหมด">
+                </div>
+                <div class="field">
+                    <div class="label-row">
+                        <label for="timeStart">ช่วงเวลาเข้าหน้างาน</label>
+                        <label class="check-label"><input type="checkbox" id="enableTimeFilter" checked> เปิดใช้งาน</label>
                     </div>
-                    <span class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">
-                        เลือกไฟล์ข้อมูล
-                    </span>
-                    <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden"/>
-                </label>
+                    <div class="time-row">
+                        <input class="control" type="time" id="timeStart" value="09:00" aria-label="เวลาเริ่มต้น">
+                        <span class="time-separator">ถึง</span>
+                        <input class="control" type="time" id="timeEnd" value="10:30" aria-label="เวลาสิ้นสุด">
+                    </div>
+                </div>
+                <div class="field">
+                    <label class="field-label" for="excludeStatus">สถานะที่ไม่ต้องการแสดง <span class="hint">Task Status</span></label>
+                    <input class="control" type="text" id="excludeStatus" value="Completed" placeholder="เช่น Completed, Cancel">
+                </div>
+                <div class="field wide exclude-field">
+                    <label class="field-label" for="extraExcludeWords">คำที่ไม่ต้องการแสดงเพิ่มเติม <span class="hint">คั่นด้วยจุลภาค</span></label>
+                    <input class="control" type="text" id="extraExcludeWords" placeholder="เช่น 3BB, Test">
+                </div>
+            </div>
+
+            <div class="filter-footer">
+                <div class="sheet-words"><strong>คำยกเว้นจาก Google Sheets:</strong> ยังไม่ได้ตั้งค่าการเชื่อมต่อ</div>
+                <div class="actions">
+                    <button class="button" id="exportButton" type="button" disabled>ส่งออกผลลัพธ์ CSV</button>
+                    <button class="button primary" id="filterButton" type="button">กรองรายการ</button>
+                </div>
             </div>
         </section>
 
-        <!-- ส่วนที่ 2: กำหนดเงื่อนไขการคัดกรอง -->
-        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div class="pb-4 border-b border-slate-100">
-                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span class="bg-blue-100 text-blue-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-xs font-bold">2</span>
-                    กำหนดเงื่อนไขการคัดกรองข้อมูล
-                </h2>
+        <section class="summary" aria-label="สรุปจำนวนรายการ">
+            <div class="stat"><div class="stat-label">รายการทั้งหมด</div><div class="stat-value" id="totalCount">0</div></div>
+            <div class="stat"><div class="stat-label">ตรงตามเงื่อนไข</div><div class="stat-value accent" id="resultCount">0</div></div>
+            <div class="stat"><div class="stat-label">จำนวนคอลัมน์</div><div class="stat-value" id="columnCount">0</div></div>
+        </section>
+
+        <section class="panel results-panel" aria-labelledby="resultsTitle">
+            <div class="results-head">
+                <div>
+                    <h2 id="resultsTitle">รายการใบงาน</h2>
+                    <p id="resultsNote">นำเข้าไฟล์เพื่อเริ่มคัดกรองข้อมูล</p>
+                </div>
+                <span class="step" id="resultBadge">0</span>
             </div>
-
-            <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                <!-- พื้นที่ -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">พื้นที่รับผิดชอบ (Region)</label>
-                    <input type="text" id="filterRegion" value="BKK" placeholder="เช่น BKK (เว้นว่าง = ทั้งหมด)" 
-                           class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"/>
+            <div class="table-wrap">
+                <div class="empty-state" id="emptyState">
+                    <strong>ยังไม่มีข้อมูล</strong>
+                    เลือกไฟล์ Excel หรือ CSV เพื่อแสดงรายการที่นี่
                 </div>
-
-                <!-- คำค้นหาใน Title -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">คำค้นหาในหัวข้อ (Title)</label>
-                    <input type="text" id="filterTitle" value="Los" placeholder="เช่น Los (เว้นว่าง = ทั้งหมด)" 
-                           class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"/>
-                </div>
-
-                <!-- ช่วงเวลา -->
-                <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label class="text-xs font-semibold text-slate-700">ช่วงเวลาเข้าหน้างาน (Plan Arrival Time)</label>
-                        <label class="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-                            <input type="checkbox" id="enableTimeFilter" checked class="accent-blue-600 w-3.5 h-3.5 rounded"> เปิดใช้งาน
-                        </label>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <input type="time" id="timeStart" value="09:00" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:border-blue-600">
-                        <span class="text-slate-400 text-xs">ถึง</span>
-                        <input type="time" id="timeEnd" value="10:30" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:border-blue-600">
-                    </div>
-                </div>
-
-                <!-- สถานะที่ไม่ต้องการ -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">สถานะที่ไม่ต้องการแสดง (Task Status)</label>
-                    <input type="text" id="excludeStatus" value="Completed" placeholder="เช่น Completed, Cancel (คั่นด้วยจุลภาค)" 
-                           class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all"/>
-                </div>
-
-                <!-- คำต้องห้ามเพิ่มเติม -->
-                <div class="sm:col-span-2">
-                    <label class="block text-xs font-semibold text-rose-700 mb-1.5">คำที่ไม่ต้องการแสดงเพิ่มเติม (คั่นด้วยเครื่องหมายจุลภาค ",")</label>
-                    <input type="text" id="extraExcludeWords" placeholder="ระบุคำที่ต้องการตัดแถวทิ้ง เช่น 3BB, Test (ระบบจะรวมกับคำจาก Google Sheets อัตโนมัติ)" 
-                           class="w-full bg-white border border-slate-300 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all"/>
-                </div>
+                <table class="hidden" id="resultsTable">
+                    <thead><tr id="tableHead"></tr></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
             </div>
+        </section>
+    </main>
 
-            <!-- แถบแสดงรายการคำห้ามแสดงจาก Google Sheets และปุ่มกดทำงาน -->
-            <div class="mt-5 pt-4 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div class="bg-slate-50 border border-slate-200 rounded-lg px-3.5 py-2 text-xs text-slate-600">
-                    <span class="font-semibold text-slate-800">รายการคำยกเว้นจาก Google Sheets: </span>
-                    <span id="sheetExcludeDisplay" class="text-slate-500">ยังไม่ได้เชื่อมต่อลิงก์ฐานข้อมูล</span>
-                </div>
+    <script>
+        const elements = {
+            fileInput: document.getElementById("fileInput"),
+            fileName: document.getElementById("fileNameDisplay"),
+            dropZone: document.getElementById("dropZone"),
+            error: document.getElementById("errorMessage"),
+            region: document.getElementById("filterRegion"),
+            title: document.getElementById("filterTitle"),
+            timeEnabled: document.getElementById("enableTimeFilter"),
+            timeStart: document.getElementById("timeStart"),
+            timeEnd: document.getElementById("timeEnd"),
+            statuses: document.getElementById("excludeStatus"),
+            extraWords: document.getElementById("extraExcludeWords"),
+            total: document.getElementById("totalCount"),
+            result: document.getElementById("resultCount"),
+            columns: document.getElementById("columnCount"),
+            badge: document.getElementById("resultBadge"),
+            note: document.getElementById("resultsNote"),
+            empty: document.getElementById("emptyState"),
+            table: document.getElementById("resultsTable"),
+            tableHead: document.getElementById("tableHead"),
+            tableBody: document.getElementById("tableBody"),
+            exportButton: document.getElementById("exportButton")
+        };
+        let allRows = [];
+        let headers = [];
+        let visibleRows = [];
 
-                <div class="flex flex-wrap items-center gap-3">
+        function normalize(value) {
+            return String(value ?? "").toLowerCase().replace(/[\s_\-./()]/g, "");
+        }
+
+        function findColumn(test) {
+            return headers.findIndex((header) => test(normalize(header)));
+        }
+
+        function splitTerms(value) {
+            return value.split(",").map((term) => term.trim().toLowerCase()).filter(Boolean);
+        }
+
+        function timeValue(value) {
+            const text = String(value ?? "").trim();
+            const match = text.match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);
+            if (match) return Number(match[1]) * 60 + Number(match[2]);
+            if (typeof value === "number" && value >= 0 && value < 1) return Math.round(value * 1440);
+            return null;
+        }
+
+        function showError(message) {
+            elements.error.textContent = message;
+            elements.error.classList.remove("hidden");
+        }
+
+        function applyFilters() {
+            const regionColumn = findColumn((name) => name.includes("region") || name.includes("พื้นที่"));
+            const titleColumn = findColumn((name) => name.includes("title") || name.includes("หัวข้อ"));
+            const timeColumn = findColumn((name) => name.includes("planarrivaltime") || name.includes("arrival"));
+            const statusColumn = findColumn((name) => name.includes("taskstatus") || name === "status" || name.includes("สถานะ"));
+            const region = elements.region.value.trim().toLowerCase();
+            const title = elements.title.value.trim().toLowerCase();
+            const excludedStatuses = splitTerms(elements.statuses.value);
+            const excludedWords = splitTerms(elements.extraWords.value);
+            const start = timeValue(elements.timeStart.value);
+            const end = timeValue(elements.timeEnd.value);
+
+            visibleRows = allRows.filter((row) => {
+                if (region && regionColumn >= 0 && !String(row[regionColumn] ?? "").toLowerCase().includes(region)) return false;
+                if (title && titleColumn >= 0 && !String(row[titleColumn] ?? "").toLowerCase().includes(title)) return false;
+                if (statusColumn >= 0 && excludedStatuses.some((term) => String(row[statusColumn] ?? "").toLowerCase().includes(term))) return false;
+                if (excludedWords.length && excludedWords.some((term) => row.some((value) => String(value ?? "").toLowerCase().includes(term)))) return false;
+                if (elements.timeEnabled.checked && timeColumn >= 0 && start !== null && end !== null) {
+                    const arrival = timeValue(row[timeColumn]);
+                    if (arrival === null || arrival < start || arrival > end) return false;
+                }
+                return true;
+            });
+            renderRows();
+        }
+
+        function renderRows() {
+            elements.total.textContent = allRows.length.toLocaleString("th-TH");
+            elements.result.textContent = visibleRows.length.toLocaleString("th-TH");
+            elements.columns.textContent = headers.length.toLocaleString("th-TH");
+            elements.badge.textContent = visibleRows.length.toLocaleString("th-TH");
+            elements.note.textContent = allRows.length
+                ? `แสดง ${visibleRows.length.toLocaleString("th-TH")} จาก ${allRows.length.toLocaleString("th-TH")} รายการ`
+                : "นำเข้าไฟล์เพื่อเริ่มคัดกรองข้อมูล";
+            elements.exportButton.disabled = visibleRows.length === 0;
+            elements.empty.classList.toggle("hidden", visibleRows.length > 0);
+            elements.table.classList.toggle("hidden", visibleRows.length === 0);
+            if (!visibleRows.length) {
+                elements.empty.innerHTML = allRows.length
+                    ? "<strong>ไม่พบรายการที่ตรงกับเงื่อนไข</strong>ลองปรับตัวกรองหรือรีเซ็ตค่าเริ่มต้น"
+                    : "<strong>ยังไม่มีข้อมูล</strong>เลือกไฟล์ Excel หรือ CSV เพื่อแสดงรายการที่นี่";
+                elements.tableHead.replaceChildren();
+                elements.tableBody.replaceChildren();
+                return;
+            }
+
+            const head = document.createElement("tr");
+            headers.forEach((header) => {
+                const th = document.createElement("th");
+                th.textContent = header;
+                head.append(th);
+            });
+            elements.tableHead.replaceChildren(head);
+            const fragment = document.createDocumentFragment();
+            visibleRows.forEach((row) => {
+                const tr = document.createElement("tr");
+                headers.forEach((_, index) => {
+                    const td = document.createElement("td");
+                    td.textContent = row[index] ?? "";
+                    tr.append(td);
+                });
+                fragment.append(tr);
+            });
+            elements.tableBody.replaceChildren(fragment);
+        }
+
+        function parseCsv(text) {
+            const rows = [];
+            let row = [];
+            let value = "";
+            let quoted = false;
+            for (let index = 0; index < text.length; index += 1) {
+                const char = text[index];
+                if (char === '"' && quoted && text[index + 1] === '"') {
+                    value += '"';
+                    index += 1;
+                } else if (char === '"') {
+                    quoted = !quoted;
+                } else if (char === "," && !quoted) {
+                    row.push(value);
+                    value = "";
+                } else if ((char === "\n" || char === "\r") && !quoted) {
+                    if (char === "\r" && text[index + 1] === "\n") index += 1;
+                    row.push(value);
+                    if (row.some((cell) => cell !== "")) rows.push(row);
+                    row = [];
+                    value = "";
+                } else {
+                    value += char;
+                }
+            }
+            row.push(value);
+            if (row.some((cell) => cell !== "")) rows.push(row);
+            return rows;
+        }
+
+        async function loadFile(file) {
+            if (!file) return;
+            elements.error.classList.add("hidden");
+            elements.fileName.textContent = file.name;
+            try {
+                let rows;
+                if (/\.csv$/i.test(file.name)) {
+                    const text = await file.text();
+                    rows = parseCsv(text.replace(/^\uFEFF/, ""));
+                } else {
+                    if (!window.XLSX) throw new Error("ไม่สามารถโหลดตัวอ่านไฟล์ Excel ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
+                    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
+                }
+                if (!rows || rows.length < 2) throw new Error("ไม่พบข้อมูลในไฟล์ หรือไฟล์มีเฉพาะหัวตาราง");
+                headers = rows[0].map((header, index) => String(header || `คอลัมน์ ${index + 1}`).trim());
+                allRows = rows.slice(1).filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+                if (!allRows.length) throw new Error("ไม่พบแถวข้อมูลใต้หัวตาราง");
+                applyFilters();
+            } catch (error) {
+                allRows = [];
+                headers = [];
+                visibleRows = [];
+                renderRows();
+                showError(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการอ่านไฟล์");
+            }
+        }
+
+        function downloadCsv() {
+            const escapeCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+            const csv = [headers, ...visibleRows].map((row) => row.map(escapeCell).join(",")).join("\r\n");
+            const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "ma-ticket-filtered.csv";
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function resetFilters() {
+            elements.region.value = "BKK";
+            elements.title.value = "Los";
+            elements.timeEnabled.checked = true;
+            elements.timeStart.value = "09:00";
+            elements.timeEnd.value = "10:30";
+            elements.statuses.value = "Completed";
+            elements.extraWords.value = "";
+            applyFilters();
+        }
+
+        elements.fileInput.addEventListener("change", (event) => loadFile(event.target.files[0]));
+        document.getElementById("filterButton").addEventListener("click", applyFilters);
+        document.getElementById("resetButton").addEventListener("click", resetFilters);
+        elements.exportButton.addEventListener("click", downloadCsv);
+        [elements.region, elements.title, elements.timeEnabled, elements.timeStart, elements.timeEnd, elements.statuses, elements.extraWords]
+            .forEach((control) => control.addEventListener("input", applyFilters));
+        elements.timeEnabled.addEventListener("change", applyFilters);
+        elements.dropZone.addEventListener("dragover", (event) => {
+            event.preventDefault();
+            elements.dropZone.classList.add("dragover");
+        });
+        elements.dropZone.addEventListener("dragleave", () => elements.dropZone.classList.remove("dragover"));
+        elements.dropZone.addEventListener("drop", (event) => {
+            event.preventDefault();
+            elements.dropZone.classList.remove("dragover");
+            loadFile(event.dataTransfer.files[0]);
+        });
+    </script>
+</body>
+</html>
