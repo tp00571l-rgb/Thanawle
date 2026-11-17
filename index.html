@@ -551,7 +551,7 @@
             }
 
             const head = document.createElement("tr");
-            elements.table.style.minWidth = `${headers.length * 140}px`;
+            elements.table.style.width = `max(100%, ${headers.length * 160}px)`;
             headers.forEach((header) => {
                 const th = document.createElement("th");
                 th.textContent = header;
