@@ -414,6 +414,7 @@
                 <div class="sheet-words"><strong>คำยกเว้นจาก Google Sheets:</strong> ยังไม่ได้ตั้งค่าการเชื่อมต่อ</div>
                 <div class="actions">
                     <button class="button" id="exportButton" type="button" disabled>ส่งออกผลลัพธ์ CSV</button>
+                    <button class="button" id="showAllButton" type="button">แสดงทั้งหมด</button>
                     <button class="button primary" id="filterButton" type="button">กรองรายการ</button>
                 </div>
             </div>
@@ -473,6 +474,7 @@
         let allRows = [];
         let headers = [];
         let visibleRows = [];
+        let isUnfilteredPreview = false;
 
         function normalize(value) {
             return String(value ?? "").toLowerCase().replace(/[\s_\-./()]/g, "");
@@ -500,6 +502,7 @@
         }
 
         function applyFilters() {
+            isUnfilteredPreview = false;
             const regionColumn = findColumn((name) => name.includes("region") || name.includes("พื้นที่"));
             const titleColumn = findColumn((name) => name.includes("title") || name.includes("หัวข้อ"));
             const timeColumn = findColumn((name) => name.includes("planarrivaltime") || name.includes("arrival"));
@@ -531,7 +534,9 @@
             elements.columns.textContent = headers.length.toLocaleString("th-TH");
             elements.badge.textContent = visibleRows.length.toLocaleString("th-TH");
             elements.note.textContent = allRows.length
-                ? `แสดง ${visibleRows.length.toLocaleString("th-TH")} จาก ${allRows.length.toLocaleString("th-TH")} รายการ`
+                ? isUnfilteredPreview
+                    ? `แสดงข้อมูลทั้งหมด ${allRows.length.toLocaleString("th-TH")} รายการ · กด “กรองรายการ” เพื่อใช้เงื่อนไขด้านบน`
+                    : `แสดง ${visibleRows.length.toLocaleString("th-TH")} จาก ${allRows.length.toLocaleString("th-TH")} รายการ`
                 : "นำเข้าไฟล์เพื่อเริ่มคัดกรองข้อมูล";
             elements.exportButton.disabled = visibleRows.length === 0;
             elements.empty.classList.toggle("hidden", visibleRows.length > 0);
@@ -607,18 +612,25 @@
                 } else {
                     if (!window.XLSX) throw new Error("ไม่สามารถโหลดตัวอ่านไฟล์ Excel ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง");
                     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "", raw: false });
+                    const sheetName = workbook.SheetNames.find((name) => {
+                        const sheetRows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "", raw: false });
+                        return sheetRows.some((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+                    });
+                    if (!sheetName) throw new Error("ไม่พบข้อมูลในทุกชีตของไฟล์ Excel");
+                    rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: false });
                 }
                 if (!rows || rows.length < 2) throw new Error("ไม่พบข้อมูลในไฟล์ หรือไฟล์มีเฉพาะหัวตาราง");
                 headers = rows[0].map((header, index) => String(header || `คอลัมน์ ${index + 1}`).trim());
                 allRows = rows.slice(1).filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
                 if (!allRows.length) throw new Error("ไม่พบแถวข้อมูลใต้หัวตาราง");
-                applyFilters();
+                isUnfilteredPreview = true;
+                visibleRows = allRows.slice();
+                renderRows();
             } catch (error) {
                 allRows = [];
                 headers = [];
                 visibleRows = [];
+                isUnfilteredPreview = false;
                 renderRows();
                 showError(error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการอ่านไฟล์");
             }
@@ -646,9 +658,19 @@
             applyFilters();
         }
 
+        function showAllRows() {
+            elements.region.value = "";
+            elements.title.value = "";
+            elements.timeEnabled.checked = false;
+            elements.statuses.value = "";
+            elements.extraWords.value = "";
+            applyFilters();
+        }
+
         elements.fileInput.addEventListener("change", (event) => loadFile(event.target.files[0]));
         document.getElementById("filterButton").addEventListener("click", applyFilters);
         document.getElementById("resetButton").addEventListener("click", resetFilters);
+        document.getElementById("showAllButton").addEventListener("click", showAllRows);
         elements.exportButton.addEventListener("click", downloadCsv);
         [elements.region, elements.title, elements.timeEnabled, elements.timeStart, elements.timeEnd, elements.statuses, elements.extraWords]
             .forEach((control) => control.addEventListener("input", applyFilters));
